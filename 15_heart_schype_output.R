@@ -19,21 +19,21 @@ gg_color_hue <- function(n) {
 }
 
 mappingTable <- read_tsv("data/mouse_rat_ampping.txt")
-schypeOutput <- read_tsv("data/schype_output_0.5th.nodes.txt", col_names = c("probes", "cluster_id"))
+schypeOutput <- read_tsv("data/schype_output_0.5th_heart.nodes.txt", col_names = c("probes", "cluster_id"))
 
 schSpe <- list(
     mouse = filter(schypeOutput, grepl("_mouse", probes, fixed = TRUE)),
     rat = filter(schypeOutput, grepl("_rat", probes, fixed = TRUE))
 )
 
-map(schSpe, nrow)
-# 825 778
-map(schSpe, ~length(unique(.x$probes)))
-# 474 425
+map_int(schSpe, nrow)
+# 974   757
+map_int(schSpe, ~length(unique(.x$probes)))
+#   454   307
 
 seriesInfo <- list(
-    mouse = read_tsv("data/GEOMouse.txt", progress = FALSE),
-    rat = read_tsv("data/GEORat.txt", progress = FALSE)
+    mouse = read_tsv("data/gse_gsm_mouse.tsv", progress = FALSE),
+    rat = read_tsv("data/gse_gsm_rat.tsv", progress = FALSE)
 )
 
 # cluster histogram ----------------
@@ -51,7 +51,7 @@ ngenePerCluster <- map_df(
     mutate(new_cluster_id = seq_len(length(cluster_id))) %>%
     gather("species", "n_gene", -cluster_id, -new_cluster_id)
 
-mp <- ggplot(ngenePerCluster, aes(x = factor(new_cluster_id, levels = 18:1), y = n_gene, fill = species)) +
+mp <- ggplot(ngenePerCluster, aes(x = factor(new_cluster_id, levels = 30:1), y = n_gene, fill = species)) +
     geom_bar(stat = "identity", position = "dodge", color = "black") +
     labs(x = "cluster", y = "Number of probes", title = "SCHype clustering") +
     scale_fill_manual(
@@ -63,10 +63,11 @@ mp <- ggplot(ngenePerCluster, aes(x = factor(new_cluster_id, levels = 18:1), y =
     coord_flip() +
     theme(legend.position = "top")
 
-ggsave("plots/figS3_SCHypeClusterSize.svg", mp, device = svglite, width = 4, height = 8, units = "cm", scale = 1.8)
+ggsave("plots/heart_SCHypeClusterSize.svg", mp, device = svglite, width = 4, height = 8, units = "cm", scale = 1.8)
+
 
 # schype heatmaps ------------------
-clusterToKeep <- c("c1" = 15, "c2" = 0, "c3" = 1, "c4" = 2)
+clusterToKeep <- c("c1" = 1, "c2" = 0, "c3" = 12, "c4" = 4)
 
 listOfGene <- map(clusterToKeep, function(x) {
     map(schSpe, function(y) {
@@ -75,7 +76,7 @@ listOfGene <- map(clusterToKeep, function(x) {
     })
 })
 
-load("data/hclust_data.RData")
+load("data/hclust_data_heart.RData")
 
 listOfGene2 <- map(c(mouse = "mouse", rat = "rat"), function(x) {
     list(
@@ -126,58 +127,14 @@ image(matrix(1:7), col = colorspace::rainbow_hcl(7, c=90, l=50))
 hclust_anno_mouse <- rowAnnotation(
     df = data.frame("hclust" = paste0("c", hclust_original_clustering[[1]])),
     name = "hclust",
-    col = list(hclust = c("c1" =  ggpalette[2], "c2" = ggpalette[6], "c3" = ggpalette[5])),
+    col = list(hclust = c("c1" =  ggpalette[1], "c2" = ggpalette[6], "c3" = ggpalette[3], "c4" = ggpalette[2], "c5" = ggpalette[4])),
     show_legend = FALSE,
     show_annotation_name = FALSE,
     annotation_name_gp = list("cex" = 0.8)
-    # annotation_height = unit(rep(1.4/3, 3), "cm")
 )
 
-# mouse column annotation ----------------
-# accNames <- data_frame(
-#     geo_id = seriesInfo$mouse$GEO_Accession[colDend$mouse$order],
-#     rank = seq_len(length(geo_id))
-# ) %>% group_by(geo_id) %>% summarise(rank = median(rank)) %>%
-#     arrange(rank)
-# accNames <- accNames$geo_id
-#
-# cols <- list()
-# template <- rep("#EEEEEE", length(unique(seriesInfo$mouse$GEO_Accession)))
-# i <- 1
-# j <- 1
-# maxi <- length(unique(seriesInfo$mouse$GEO_Accession))
-#
-# while(i <= maxi) {
-#     cols[[j]] <- template
-#     cols[[j]][i:min(c(i + 9, maxi))] <- gg_color_hue(length(cols[[j]][i:min(c(i + 9, maxi))]))
-#     i <- i + 10
-#     j <- j +1
-# }
-# cols <- map(cols, function(x) {
-#     names(x) <- accNames
-#     return(x)
-# })
-# names(cols) <- paste0("GEO", c("1-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-62"))
-#
-# df <- as.data.frame(matrix(
-#     seriesInfo$mouse$GEO_Accession,
-#     ncol = length(cols),
-#     nrow = length(seriesInfo$mouse$GEO_Accession)
-# ))
-# names(df) <- names(cols)
-#
-# decGeoAcc <- columnAnnotation(
-#     df = df,
-#     col = cols,
-#     show_legend = FALSE,
-#     show_annotation_name = TRUE,
-#     annotation_name_gp = list("cex" = 0.7),
-#     annotation_height = unit(rep(0.3, 7), "cm")
-# )
-# decGeoAcc_mouse <- decGeoAcc
-
 # b& w anno ---------
-accNames <- seriesInfo$mouse[match(labels(colDend2$mouse), seriesInfo$mouse$Experiment),]$GEO_Accession %>%
+accNames <- seriesInfo$mouse[match(labels(colDend2$mouse), seriesInfo$mouse$gsm),]$gse %>%
     unique
 names(accNames) <- accNames
 bg <- "grey95"
@@ -194,9 +151,9 @@ cols <- map(accNames, function(x) {
 
 })
 df <- as.data.frame(matrix(
-    seriesInfo$mouse$GEO_Accession,
+    seriesInfo$mouse$gse,
     ncol = length(cols),
-    nrow = length(seriesInfo$mouse$GEO_Accession)
+    nrow = length(seriesInfo$mouse$gse)
 ))
 names(df) <- names(cols)
 
@@ -231,68 +188,28 @@ mh <- Heatmap(
     raster_device = "CairoPNG",
     raster_quality = 4
 )
-png(file = "plots/Heatmap_mouse_dend_SChype3.png", width = 15, heigh = 12, units = "cm", res = 600)
+png(file = "plots/Heatmap_mouse_dend_SChype3_heart.png", width = 15, heigh = 12, units = "cm", res = 600)
 hclust_anno_mouse + mh
 dev.off()
 Sys.time() - t0
 
 # rat heatmap -------------
+table(hclust_original_clustering[[2]])
+table(rowClusters[[2]])
+image(matrix(1:7), col = colorspace::rainbow_hcl(7, c=90, l=50))
+
+
 hclust_anno_rat <- rowAnnotation(
     df = data.frame("hclust" = paste0("c", hclust_original_clustering[[2]])),
     name = "hclust",
-    col = list(hclust = c("c1" =  ggpalette[2], "c2" = ggpalette[4], "c3" = ggpalette[3])),
+    col = list(hclust = c("c2" =  ggpalette[3], "c3" = ggpalette[6], "c5" = ggpalette[7])),
     show_legend = FALSE,
     show_annotation_name = FALSE,
     annotation_name_gp = list("cex" = 0.8)
     # annotation_height = unit(rep(1.4/3, 3), "cm")
 )
 
-# rat column annotation ----------------
-# accNames <- data_frame(
-#     geo_id = seriesInfo$ra$GEO_Accession[colDend$rat$order],
-#     rank = seq_len(length(geo_id))
-# ) %>% group_by(geo_id) %>% summarise(rank = median(rank)) %>%
-#     arrange(rank)
-# accNames <- accNames$geo_id
-#
-# cols <- list()
-# template <- rep("#EEEEEE", length(unique(seriesInfo$rat$GEO_Accession)))
-# i <- 1
-# j <- 1
-# maxi <- length(unique(seriesInfo$rat$GEO_Accession))
-#
-# while(i <= maxi) {
-#     cols[[j]] <- template
-#     cols[[j]][i:min(c(i + 9, maxi))] <- gg_color_hue(length(cols[[j]][i:min(c(i + 9, maxi))]))
-#     i <- i + 10
-#     j <- j +1
-# }
-# cols <- map(cols, function(x) {
-#     names(x) <- accNames
-#     return(x)
-# })
-# names(cols) <- paste0("GEO", c("1-10", "11-20", "21-28"))
-#
-# df <- as.data.frame(matrix(
-#     seriesInfo$rat$GEO_Accession,
-#     ncol = length(cols),
-#     nrow = length(seriesInfo$rat$GEO_Accession)
-# ))
-# names(df) <- names(cols)
-#
-# decGeoAcc <- columnAnnotation(
-#     df = df,
-#     col = cols,
-#     show_legend = FALSE,
-#     show_annotation_name = TRUE,
-#     annotation_name_gp = list("cex" = 0.7),
-#     annotation_height = unit(rep(0.3, 7), "cm")
-# )
-#
-# decGeoAcc_rat <- decGeoAcc
-
-# rat b & w anno ---------
-accNames <- seriesInfo$rat[match(labels(colDend2$rat), seriesInfo$rat$Experiment),]$GEO_Accession %>%
+accNames <- seriesInfo$rat[match(labels(colDend2$rat), seriesInfo$rat$gsm),]$gse %>%
     unique
 names(accNames) <- accNames
 bg <- "grey95"
@@ -306,12 +223,11 @@ cols <- map(accNames, function(x) {
     if(fg == "grey15") fg <<- "black" else fg <<- "grey15"
 
     return(mcols)
-
 })
 df <- as.data.frame(matrix(
-    seriesInfo$rat$GEO_Accession,
+    seriesInfo$rat$gse,
     ncol = length(cols),
-    nrow = length(seriesInfo$rat$GEO_Accession)
+    nrow = length(seriesInfo$rat$gse)
 ))
 names(df) <- names(cols)
 
@@ -346,15 +262,15 @@ mh <- Heatmap(
     raster_device = "CairoPNG",
     raster_quality = 4
 )
-png(file = "plots/Heatmap_rat_dend_SChype3.png", width = 15, heigh = 12, units = "cm", res = 600)
+png(file = "plots/Heatmap_rat_dend_SChype3_heart.png", width = 15, heigh = 12, units = "cm", res = 600)
 hclust_anno_rat + mh
 dev.off()
 Sys.time() - t0
 
 # gene lists for go analysis ---------------
 anno <- list(
-    mouse = read_csv("data/Mouse430_2.na36.annot.csv",  comment = "#"),
-    rat = read_csv("data/Rat230_2.na36.annot.csv", comment = "#")
+    mouse = read_csv("data/Mouse430_2.na36.annot.csv",  comment = "#", progress = FALSE),
+    rat = read_csv("data/Rat230_2.na36.annot.csv", comment = "#", progress = FALSE)
 )
 anno <- map(anno, function(x) {
     colnames(x)[1] <- "ID"
@@ -374,31 +290,30 @@ geneClusters <- function(probes_id, annotations, what = "Ensembl") {
 map(listOfGene2, ~map_int(.x, length))
 # $mouse
 # c1 c2 c3 c4
-# 62 52 42 29
+# 50 48 29 28
 #
 # $rat
 # c1 c2 c3 c4
-# 61 53 37 21
+# 30 22 16 21
 
 ENSgIDs <- map2(listOfGene2, anno, function(x, y) {
     map(x, function(z) geneClusters(z, y))
 })
 
 map(ENSgIDs, ~map_int(.x, length))
-
 # $mouse
 # c1 c2 c3 c4
-# 60 50 39 22
+# 49 46 25 26
 #
 # $rat
 # c1 c2 c3 c4
-# 51 44 29  9
+# 26 14 13 17
 
 map(seq_along(ENSgIDs), function(i) {
     map(seq_along(ENSgIDs[[i]]), function(j) {
         write.table(
             ENSgIDs[[i]][[j]],
-            file = paste0("data/gl_SCHype_clust_", names(ENSgIDs)[i], "_cluster", j, "_", length(ENSgIDs[[i]][[j]]), "genes.txt"),
+            file = paste0("data/gl_SCHype_clust_heart_", names(ENSgIDs)[i], "_cluster", j, "_", length(ENSgIDs[[i]][[j]]), "genes.txt"),
             quote = FALSE, col.names = FALSE, row.names = FALSE
         )
     })
@@ -425,6 +340,7 @@ col_clusters_2 <- map(schye_cluster, function(species) {
     })
 })
 
+
 col_clusters_3 <- map(schye_cluster, function(species) {
     map(species, function(myCluster) {
         mdis <- dist(t(myCluster))
@@ -441,8 +357,8 @@ col_clusters_3 <- map(schye_cluster, function(species) {
 geo_bottom_dec <- list(mouse = decGeoAcc_mouse, rat = decGeoAcc_rat)
 
 hclust_colors <- list(
-    mouse = list(hclust = c("c1" =  ggpalette[2], "c2" = ggpalette[6], "c3" = ggpalette[5])),
-    rat = list(hclust = c("c1" =  ggpalette[2], "c2" = ggpalette[4], "c3" = ggpalette[3]))
+    mouse = list(hclust = c("c1" =  ggpalette[1], "c2" = ggpalette[6], "c3" = ggpalette[3], "c4" = ggpalette[2], "c5" = ggpalette[4])),
+    rat = list(hclust = c("c2" =  ggpalette[3], "c3" = ggpalette[6], "c5" = ggpalette[7]))
 )
 
 myHms2 <- pmap(
@@ -479,28 +395,6 @@ myHms2 <- pmap(
     }
 )
 
-myHms3 <- pmap(list(schye_cluster, col_clusters_3, geo_bottom_dec), function(species, dendro, decoration) {
-    map(1:4, function(i) {
-        mh <- Heatmap(
-            matrix = species[[i]],
-            col = colorRamp2(c(-3, 0, 3), colors = c("green", "black", "magenta")),
-            name = "log(FC)",
-            show_row_dend = FALSE,
-            cluster_columns = dendro[[i]],
-            column_dend_height = unit(1, "cm"),
-            row_title = "Probes",
-            column_title = "Experiments",
-            show_row_names = FALSE,
-            show_column_names = FALSE,
-            bottom_annotation = decoration,
-            bottom_annotation_height = unit(3, "cm"),
-            use_raster = TRUE,
-            raster_device = "CairoPNG",
-            raster_quality = 4
-        )
-    })
-})
-
 myHms3 <- pmap(
     list(schye_cluster, col_clusters_3, geo_bottom_dec, hclust_original_clustering2, hclust_colors),
     function(species, dendro, decoration, hclust, colors) {
@@ -535,58 +429,9 @@ myHms3 <- pmap(
     }
 )
 
-png(file = "plots/schypeHeatmaps/hm2_%03d.png", width = 10, heigh = 7, units = "cm", res = 600)
+png(file = "plots/schypeHeatmaps/hm2_heart_%03d.png", width = 10, heigh = 7, units = "cm", res = 600)
 myHms2
 dev.off()
-png(file = "plots/schypeHeatmaps/hm3_%03d.png", width = 10, heigh = 7, units = "cm", res = 600)
+png(file = "plots/schypeHeatmaps/hm3_heart_%03d.png", width = 10, heigh = 7, units = "cm", res = 600)
 myHms3
-dev.off()
-
-library(gridExtra)
-
-grid.arrange(
-    draw(myHms3[[1]][[1]], newpage = FALSE),
-    draw(myHms2[[1]][[2]], newpage = FALSE),
-    draw(myHms2[[1]][[3]], newpage = FALSE),
-    draw(myHms3[[1]][[4]], newpage = FALSE),
-    ncol = 2
-)
-
-png(file = "plots/schype_clusters.png", width = 16, heigh = 20, units = "cm", res = 600)
-
-grid.newpage()
-pushViewport(viewport(layout = grid.layout(nr = 4, nc = 2)))
-
-pushViewport(viewport(layout.pos.row = 1, layout.pos.col = 1))
-draw(myHms3[[1]][[1]], newpage = FALSE)
-upViewport()
-
-pushViewport(viewport(layout.pos.row = 2, layout.pos.col = 1))
-draw(myHms2[[1]][[2]], newpage = FALSE)
-upViewport()
-
-pushViewport(viewport(layout.pos.row = 3, layout.pos.col = 1))
-draw(myHms2[[1]][[3]], newpage = FALSE)
-upViewport()
-
-pushViewport(viewport(layout.pos.row = 4, layout.pos.col = 1))
-draw(myHms3[[1]][[4]], newpage = FALSE)
-upViewport()
-
-pushViewport(viewport(layout.pos.row = 1, layout.pos.col = 1))
-draw(myHms2[[2]][[1]], newpage = FALSE)
-upViewport()
-
-pushViewport(viewport(layout.pos.row = 2, layout.pos.col = 1))
-draw(myHms3[[2]][[2]], newpage = FALSE)
-upViewport()
-
-pushViewport(viewport(layout.pos.row = 3, layout.pos.col = 1))
-draw(myHms3[[2]][[3]], newpage = FALSE)
-upViewport()
-
-pushViewport(viewport(layout.pos.row = 4, layout.pos.col = 1))
-draw(myHms2[[2]][[4]], newpage = FALSE)
-upViewport()
-
 dev.off()

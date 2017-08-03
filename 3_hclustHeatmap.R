@@ -11,14 +11,32 @@ library(viridis)
 library(dendextend)
 library(cba)
 
-# source("scripts/functions_for_2.R")
-
-# mean variance plot and 1SD selection ----------------
-
 seriesInfo <- list(
     mouse = read_tsv("data/GEOMouse.txt", progress = FALSE),
     rat = read_tsv("data/GEORat.txt", progress = FALSE)
 )
+
+seriesTable <- map(seriesInfo, ~table(.x$GEO_Accession) %>%
+        as_data_frame %>%
+        arrange(desc(n)))
+
+write.table(
+    seriesTable$mouse,
+    file = "supp_table_1_mouse.txt",
+    sep = "\t",
+    quote = FALSE,
+    col.names = FALSE,
+    row.names = FALSE
+)
+write.table(
+    seriesTable$rat,
+    file = "supp_table_1_rat.txt",
+    sep = "\t",
+    quote = FALSE,
+    col.names = FALSE,
+    row.names = FALSE
+)
+
 
 t0 <- Sys.time() # 25 sec
 normData <- list(

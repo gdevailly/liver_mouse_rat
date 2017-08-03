@@ -11,15 +11,15 @@ library(future); plan(multiprocess)
 mappingTable <- read_tsv("data/mouse_rat_ampping.txt")
 
 anno <- list(
-    mouse = read_csv("data/Mouse430_2.na36.annot.csv",  comment = "#"),
-    rat = read_csv("data/Rat230_2.na36.annot.csv", comment = "#")
+    mouse = read_csv("data/Mouse430_2.na36.annot.csv",  comment = "#", progress = FALSE),
+    rat = read_csv("data/Rat230_2.na36.annot.csv", comment = "#", progress = FALSE)
 )
 anno <- map(anno, function(x) {
     colnames(x)[1] <- "ID"
     return(x)
 })
 
-homoloGene <- read_tsv("data/homologene.data", col_names = FALSE)
+homoloGene <- read_tsv("data/homologene.data", col_names = FALSE, progress = FALSE)
 mouseID <- 10090
 ratID <- 10116
 colnames(homoloGene) <- c("homology_group", "tax_ID", "gene_ID", "gene_symbol", "protein_ID", "protein_acc")
@@ -31,13 +31,6 @@ table(
     (homoloGene %>% group_by(homology_group) %>% summarise(n = n()))$n
 )
 
-# 1     2     3     4     5     6     7     8     9    10    11    12    13
-# 1489 17367   704   189    67    51    34    13    11    10     4     7    10
-# 14    15    16    17    18    19    20    22    23    27    29    30    36
-# 5     2     5     3     2     1     2     3     3     2     1     1     1
-# 38    44    46    68    80   110   296
-# 1     1     1     1     1     1     1
-
 nGene_per_group <- homoloGene %>%
     group_by(homology_group) %>%
     summarise(n = n())
@@ -48,8 +41,6 @@ multiH <- filter(homoloGene, homology_group %in% big_groups$homology_group)
 table(
     (multiH %>%  group_by(homology_group) %>% summarise(species = n_distinct(tax_ID)))$species
 )
-# 1   2
-# 250 888
 
 n_species <- multiH %>%
     group_by(homology_group) %>%
@@ -59,10 +50,7 @@ n_species <- multiH %>%
 multiH <- filter(multiH, homology_group %in% n_species$homology_group)
 
 # SCHype output filtering --------------------------------
-
-schypeOutput <- read_tsv("data/schype_output_0.5th.nodes.txt", col_names = c("probes", "cluster_id"))
-schypeOutput0_75 <- read_tsv("data/schype_output_0.75th.nodes.txt", col_names = c("probes", "cluster_id"), progress = FALSE)
-
+schypeOutput <- read_tsv("data/schype_output_0.5th_heart.nodes.txt", col_names = c("probes", "cluster_id"))
 schSpe <- list(
     mouse = filter(schypeOutput, grepl("_mouse", probes, fixed = TRUE)),
     rat = filter(schypeOutput, grepl("_rat", probes, fixed = TRUE))
@@ -72,6 +60,7 @@ schSpe <- map(schSpe, function(x) {
     return(x)
 })
 
+schypeOutput0_75 <- read_tsv("data/schype_output_0.75th_heart.nodes.txt", col_names = c("probes", "cluster_id"), progress = FALSE)
 schSpe0_75 <- list(
     mouse = filter(schypeOutput0_75, grepl("_mouse", probes, fixed = TRUE)),
     rat = filter(schypeOutput0_75, grepl("_rat", probes, fixed = TRUE))
@@ -91,7 +80,6 @@ getGeneID <- function(probes_id, annotations, what = "Entrez Gene") {
         unique
 }
 getGeneID(schSpe$mouse$probes, anno$mouse) %>% head
-
 
 schSpeCluster <- map(unique(schypeOutput$cluster_id), function(x) {
     myCluster <- filter(schypeOutput, cluster_id == x)
@@ -147,11 +135,10 @@ getSchYpeClusterFor <- function(multiHgroup, schypeC = schSpeCluster) {
 
 myOverlaps <- map(multiHlist, getSchYpeClusterFor)
 myOverlaps <- myOverlaps[map_lgl(myOverlaps, ~length(.x) >= 1)]
-length(myOverlaps) # 18
-
+length(myOverlaps) # 12
 myOverlaps0_75 <- map(multiHlist, ~getSchYpeClusterFor(.x, schypeC = schSpeCluster0_75))
 myOverlaps0_75 <- myOverlaps0_75[map_lgl(myOverlaps0_75, ~length(.x) >= 1)]
-length(myOverlaps0_75) # 5
+length(myOverlaps0_75) # 3
 
 multiHlist$h_3938
 schSpeCluster[[1]]
@@ -173,20 +160,19 @@ getMagicTable <- function(myOverlap, Overlaps = myOverlaps, homologs = multiHlis
 
 names(myOverlaps)
 getMagicTable("h_3938") %>% glimpse
-getMagicTable("h_10699") %>% glimpse
+getMagicTable("h_469") %>% glimpse
 
 ortholog_resolution <- map(names(myOverlaps), getMagicTable)
 ortholog_resolution0_75 <- map(names(myOverlaps0_75), ~getMagicTable(.x, Overlaps = myOverlaps0_75, homologs = multiHlist, clusters = schSpeCluster0_75))
 
-invisible(map(ortholog_resolution, ~write.table(
+walk(ortholog_resolution, ~write.table(
     .x,
-    file = paste0("result/ortholog_resolution_", unlist(.x[1, "gene_symbol"]), ".txt"),
-    sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE, eol = "\r\n"
-)))
-
-walk(ortholog_resolution0_75, ~write.table(
-    .x,
-    file = paste0("result/ortholog_resolution_0_75_", unlist(.x[1, "gene_symbol"]), ".txt"),
+    file = paste0("result/ortholog_resolution_heart_", unlist(.x[1, "gene_symbol"]), ".txt"),
     sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE, eol = "\r\n"
 ))
 
+walk(ortholog_resolution0_75, ~write.table(
+    .x,
+    file = paste0("result/ortholog_resolution_heart_0_75_", unlist(.x[1, "gene_symbol"]), ".txt"),
+    sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE, eol = "\r\n"
+))

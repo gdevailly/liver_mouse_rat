@@ -9,11 +9,11 @@ library(cowplot)
 library(svglite)
 library(tm)
 
-load("data/hclust_data.RData")
+load("data/hclust_data_heart.RData")
 
 geoMeta <- list(
-    mouse = read_tsv("data/mouseCharacteristics.txt"),
-    rat = read_tsv("data/ratCharacteristics.txt")
+    mouse = read_tsv("data/mouseCharacteristics_heart.txt"),
+    rat = read_tsv("data/ratCharacteristics_heart.txt")
 )
 
 getWordCount <- function(myvect) {
@@ -69,14 +69,15 @@ myWordCounthclustMouseMerged <- mutate(
 
 myWordCounthclustMouseMergedClean <- filter(
     myWordCounthclustMouseMerged,
-    !(term %in% c("diet", "strain", "tissue", "gender", "liver", "for",
+    !(term %in% c("diet", "strain", "tissue", "gender", "heart", "for",
                   "dose", "mgkg", "route", "genotype", "months", "age",
                   "mixed", "high", "wks", "weeks", "hrs", "compound",
                   "sex", "8wk", "days", "treatment", "background", "strainbackground",
                   "status", "disease", "the", "genotypevariation", "genetic", "experiment",
-                  "start", "mice", "mus", "musculus", "with"))
+                  "start", "mice", "mus", "musculus", "with", "mouse", "and", "from", "this",
+                  "stage", "cardiac", "were"))
 )
-plot(myWordCounthclustMouseMergedClean$diff_c1_c3)
+#plot(myWordCounthclustMouseMergedClean$diff_c1_c3)
 
 ggpalette <-  colorspace::rainbow_hcl(4, c=90, l=50)
 
@@ -96,7 +97,7 @@ p_mouse <- bind_rows(list(
     geom_bar(stat = "identity", position = "dodge", color = "black", width = 0.6) +
     labs(x = "", y = "Frequency", title = "Mouse") +
     scale_fill_manual(
-        values = c(ggpalette[1], ggpalette[3]),
+        values = c(ggpalette[2], ggpalette[3]),
         name = "",
         breaks = c("c1f", "c3f"),
         labels = c("Cluster 1", "Cluster 3")
@@ -109,13 +110,15 @@ myWordCounthclustRat <- map(myCharcthclust$rat, getWordCount)
 
 myWordCounthclustRatMerged <- full_join(myWordCounthclustRat[[1]], myWordCounthclustRat[[2]], by = "term") %>%
     full_join(myWordCounthclustRat[[3]], by = "term") %>%
-    full_join(myWordCounthclustRat[[4]], by = "term")
-colnames(myWordCounthclustRatMerged) <- c("term", "c1", "c2", "c3", "c4")
+    full_join(myWordCounthclustRat[[4]], by = "term") %>%
+    full_join(myWordCounthclustRat[[5]], by = "term")
+colnames(myWordCounthclustRatMerged) <- c("term", "c1", "c2", "c3", "c4", "c5")
 
 myWordCounthclustRatMerged$c1[is.na(myWordCounthclustRatMerged$c1)] <- 0
 myWordCounthclustRatMerged$c2[is.na(myWordCounthclustRatMerged$c2)] <- 0
 myWordCounthclustRatMerged$c3[is.na(myWordCounthclustRatMerged$c3)] <- 0
 myWordCounthclustRatMerged$c4[is.na(myWordCounthclustRatMerged$c4)] <- 0
+myWordCounthclustRatMerged$c5[is.na(myWordCounthclustRatMerged$c5)] <- 0
 
 map(expPerhclustCluster$rat, length)
 myWordCounthclustRatMerged <- mutate(
@@ -123,27 +126,29 @@ myWordCounthclustRatMerged <- mutate(
     c1f = c1/length(expPerhclustCluster$rat[[1]]),
     c2f = c2/length(expPerhclustCluster$rat[[2]]),
     c3f = c3/length(expPerhclustCluster$rat[[3]]),
-    c4f = c4/length(expPerhclustCluster$rat[[4]])
+    c4f = c4/length(expPerhclustCluster$rat[[4]]),
+    c5f = c5/length(expPerhclustCluster$rat[[5]])
 )
 
 myWordCounthclustRatMerged <- mutate(
     myWordCounthclustRatMerged,
-    diff_c1_c3 = c1f - c3f
-) %>% arrange(diff_c1_c3)
+    diff_c1_c5 = c1f - c5f
+) %>% arrange(diff_c1_c5)
 
 myWordCounthclustRatMergedClean <- filter(
     myWordCounthclustRatMerged,
-    !(term %in% c("diet", "strain", "tissue", "gender", "liver", "for",
+    !(term %in% c("diet", "strain", "tissue", "gender", "heart", "for",
                   "dose", "mgkg", "route", "genotype", "months", "age",
                   "mixed", "high", "wks", "weeks", "hrs", "compound",
                   "sex", "8wk", "days", "treatment", "background", "strainbackground",
                   "status", "disease", "the", "genotypevariation", "genetic", "experiment",
                   "start", "rat", "rats", "norvegicus", "with", "time", "hour", "µgkg", "group",
-                  "and", "sacrificed", "from", "feeded", "wky", "fed", "source", "mlkg"))
+                  "and", "sacrificed", "from", "feeded", "wky", "fed", "source", "mlkg",
+                  "date", "extraction", "hybridization", "rna", "dosage", "weight"))
 )
-plot(myWordCounthclustRatMergedClean$diff_c1_c3)
+#plot(myWordCounthclustRatMergedClean$diff_c1_c5)
 
-ggpalette <-  colorspace::rainbow_hcl(4, c=90, l=50)
+ggpalette <-  colorspace::rainbow_hcl(5, c=90, l=50)
 
 p_rat <- bind_rows(list(
     filter(
@@ -154,7 +159,7 @@ p_rat <- bind_rows(list(
     tail(myWordCounthclustRatMergedClean, 5)
 )) %>%
     distinct %>%
-    select(term, c1f, c3f) %>%
+    select(term, c1f, c5f) %>%
     gather("cluster", "frequency", -term) %>%
     mutate(term = factor(term, levels = rev(unique(c("female", "male", unique(term)))))) %>%
     ggplot(aes(x = term, y = frequency, fill = cluster)) +
@@ -164,12 +169,12 @@ p_rat <- bind_rows(list(
     scale_fill_manual(
         values = c(ggpalette[2], ggpalette[3]),
         name = "",
-        breaks = c("c1f", "c3f"),
-        labels = c("Cluster 1", "Cluster 3")
+        breaks = c("c1f", "c5f"),
+        labels = c("Cluster 1", "Cluster 5")
     ) +
     coord_flip(ylim = c(0, 1)) +
     theme(legend.position = "top")
 
 # plot export -------------------------
 mp <- plot_grid(p_mouse, p_rat, ncol = 2, align = "hv")
-ggsave("plots/fig2_frequency_hclust.svg", mp, device = svglite, width = 10, height = 5, units = "cm", scale = 1.8)
+ggsave("plots/heart_frequency_hclust.svg", mp, device = svglite, width = 10, height = 5, units = "cm", scale = 1.8)

@@ -11,8 +11,8 @@ library(future); plan(multiprocess)
 
 t0 <- Sys.time() # 25 sec
 normData <- list(
-    mouse = read_tsv("data/quantNormData_mouse_1sd.tsv", progress = FALSE),
-    rat = read_tsv("data/quantNormData_rat_1sd.tsv", progress = FALSE)
+    mouse = read_tsv("data/heart_quantNormData_mouse_1sd.tsv", progress = FALSE),
+    rat = read_tsv("data/heart_quantNormData_rat_1sd.tsv", progress = FALSE)
 )
 Sys.time() - t0
 
@@ -44,7 +44,7 @@ figS2 <- plot_grid(
     corDistrib[[1]], corDistrib[[2]],
     ncol = 2, labels = LETTERS[1:2], label_size = 22, hjust = -0.7, vjust = 1.2
 )
-ggsave("plots/figS2_corDens.svg", figS2, device = svglite, width = 10, height = 4, units = "cm", scale = 1.8)
+ggsave("plots/heart_corDens.svg", figS2, device = svglite, width = 10, height = 4, units = "cm", scale = 1.8)
 
 # get pairs of probes ---------------
 getPairOfProbes <- function(mat, threshold = 0.5) {
@@ -61,70 +61,8 @@ getPairOfProbes <- function(mat, threshold = 0.5) {
 links <- map(corVal, getPairOfProbes)
 links0_75 <- map(corVal, ~getPairOfProbes(.x, threshold = 0.75))
 
-# homology links from homologene---------------------
-# wget ftp://ftp.ncbi.nih.gov/pub/HomoloGene/current/homologene.data
-# ^ 2016-02-27
-# homoloGene <- read_tsv("data/homologene.data", col_names = FALSE) %>% as.data.frame # ps2ps doesn't like tibbles
-# mouseID <- 10090
-# ratID <- 10116
-#
-# # affy annotation form pia / affymetrix
-# annotMouse <- read_csv("data/Mouse430_2.na36.annot.csv",  comment = "#") %>% as.data.frame
-# annotRat <- read_csv("data/Rat230_2.na36.annot.csv", comment = "#") %>% as.data.frame
-#
-# # long... 15 minutes
-# mappingTableMouse %<-% ps2ps(annotMouse, annotRat, homoloGene, ratID)
-# mappingTableRat %<-% ps2ps(annotRat, annotMouse, homoloGene, mouseID)
-#
-# head(mappingTableMouse)
-# head(mappingTableRat)
-# dim(mappingTableMouse)
-# dim(mappingTableRat)
-# write.table(mappingTableMouse, file = "data/mappingTableMouse.txt", sep = "\t", quote = FALSE, row.names = FALSE)
-# write.table(mappingTableRat, file = "data/mappingTableRat.txt", sep = "\t", quote = FALSE, row.names = FALSE)
-
-mappingTableMouse <- read_tsv("data/mappingTableMouse.txt")
-mappingTableRat <- read_tsv("data/mappingTableRat.txt")
-dim(mappingTableMouse)
-dim(mappingTableRat)
-dim(annotMouse)
-dim(annotRat)
-
-t0 <- Sys.time() # 1 min
-mappingTableMouse2 <- map_df(seq_len(nrow(mappingTableMouse)), function(x) {
-    x <- mappingTableMouse[x, ]
-    return(data_frame(
-        ps_1 = x$ps_1, gid_1 = x$gid_1, gid_2 = x$gid_2, ps_2 = unlist(strsplit(x$ps_2, ",", fixed = TRUE))
-    ))
-})
-Sys.time() - t0
-t0 <- Sys.time() # 1 min
-mappingTableRat2 <- map_df(seq_len(nrow(mappingTableRat)), function(x) {
-    x <- mappingTableRat[x, ]
-    return(data_frame(
-        ps_1 = x$ps_1, gid_1 = x$gid_1, gid_2 = x$gid_2, ps_2 = unlist(strsplit(x$ps_2, ",", fixed = TRUE))
-    ))
-})
-Sys.time() - t0
-mappingTableMouse2 <- select(mappingTableMouse2, ps_1, ps_2) %>% rename(mouse_ps = ps_1, rat_ps = ps_2)
-mappingTableRat2 <- select(mappingTableRat2, ps_1, ps_2) %>% rename(rat_ps = ps_1, mouse_ps = ps_2)
-
-mappingTable <- bind_rows(mappingTableMouse2, mappingTableRat2) %>% distinct
-
-dim(mappingTableMouse2)
-dim(mappingTableRat2)
-dim(mappingTable)
-
-write.table(
-    mappingTable,
-    file = "data/mouse_rat_ampping.txt",
-    quote = FALSE,
-    row.names = FALSE,
-    col.names = TRUE,
-    sep = "\t"
-)
-mappingTable <- read_tsv("data/mouse_rat_ampping.txt", progress = FALSE)
 # building file for SCHYPE -------------------
+mappingTable <- read_tsv("data/mouse_rat_ampping.txt")
 
 # sorting node-1 node-2 alphabeticaly
 sortInteractions <- function(df) {
@@ -134,9 +72,15 @@ sortInteractions <- function(df) {
     }) %>% distinct
 }
 
-# slow...
+# 40 minutes
+t0 <- Sys.time()
 sorted_links <- map(links, sortInteractions)
+Sys.time() - t0
+
+# 3 minutes
+t0 <- Sys.time()
 sorted_links0_75 <- map(links0_75, sortInteractions)
+Sys.time() - t0
 
 # converting rat probe_id into mouse
 ratHomologousInterations <- left_join(sorted_links$rat, mappingTable, by = c("node_1" = "rat_ps")) %>%
@@ -150,7 +94,7 @@ ratHomologousInterations0_75 <- left_join(sorted_links0_75$rat, mappingTable, by
     rename(node_2_mouse = mouse_ps)
 
 # sorting intreactions
-t0 <- Sys.time() # 20 minutes
+t0 <- Sys.time() # 4 minutes
 ratHomologousInterations2 <- map_df(seq_len(nrow(ratHomologousInterations)), function(x) {
     line <- ratHomologousInterations[x, ]
     sorted_pair <- unlist(line)[3:4] %>% sort
@@ -158,7 +102,7 @@ ratHomologousInterations2 <- map_df(seq_len(nrow(ratHomologousInterations)), fun
 }) %>% distinct
 Sys.time() - t0
 
-t0 <- Sys.time() # 3 minutes
+t0 <- Sys.time() # 1 minute
 ratHomologousInterations2_0_75 <- map_df(seq_len(nrow(ratHomologousInterations0_75)), function(x) {
     line <- ratHomologousInterations0_75[x, ]
     sorted_pair <- unlist(line)[3:4] %>% sort
@@ -177,7 +121,6 @@ homolog_links <- inner_join(
     node_1_m = node_1.x, node_2_m = node_2.x,
     node_1_r = node_1.y, node_2_r = node_2.y
 )
-
 homolog_links0_75 <- inner_join(
     mutate(sorted_links0_75$mouse, key = paste(node_1, node_2)),
     mutate(ratHomologousInterations2_0_75, key = paste(node_1_mouse, node_2_mouse)),
@@ -193,7 +136,6 @@ schype_input <- with(homolog_links, data_frame(
         node_1_r, "_rat ", node_2_r, "_rat"
     )
 ))
-
 schype_input0_75 <- with(homolog_links0_75, data_frame(
     nodes = paste0(
         node_1_m, "_mouse ", node_2_m, "_mouse | ",
@@ -203,26 +145,21 @@ schype_input0_75 <- with(homolog_links0_75, data_frame(
 
 write.table(
     schype_input,
-    file = "data/fileForSCHypeThreshold0.5.txt",
+    file = "data/fileForSCHypeThreshold0.5_heart.txt",
     quote = FALSE,
     row.names = FALSE,
     col.names = FALSE
 )
-
 write.table(
     schype_input0_75,
-    file = "data/fileForSCHypeThreshold0.75.txt",
+    file = "data/fileForSCHypeThreshold0.75_heart.txt",
     quote = FALSE,
     row.names = FALSE,
     col.names = FALSE
 )
 
-# running schype, fast
+# running schype, instant
 module load compilers/java/current
-
-java -jar ../../programmes/schype-master/SCHype.jar -hgfile data/fileForSCHypeThreshold0.5.txt -dir true -output data/schype_output_0.5th
-
-java -jar ../../programmes/schype-master/SCHype.jar -hgfile data/fileForSCHypeThreshold0.75.txt -dir true -output data/schype_output_0.75th
-
-
+java -jar ../../programmes/schype-master/SCHype.jar -hgfile data/fileForSCHypeThreshold0.5_heart.txt -dir true -output data/schype_output_0.5th_heart
+java -jar ../../programmes/schype-master/SCHype.jar -hgfile data/fileForSCHypeThreshold0.75_heart.txt -dir true -output data/schype_output_0.75th_heart
 
